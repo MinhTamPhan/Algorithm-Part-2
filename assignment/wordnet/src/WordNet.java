@@ -1,4 +1,5 @@
 import edu.princeton.cs.algs4.Digraph;
+import edu.princeton.cs.algs4.DirectedCycle;
 import edu.princeton.cs.algs4.In;
 
 import java.util.ArrayList;
@@ -12,6 +13,8 @@ import java.util.Map;
 public class WordNet {
 
     private Digraph G; // Graph
+    private int numOfVertex = 0;
+    private SAP sap; // SAP
 
     private Map<String, ArrayList<Integer>> nouns = new HashMap<String, ArrayList<Integer>>();// List of nouns <noun, List<synsetIds>>
     private Map<Integer, String> synsets = new HashMap<Integer, String>(); // List of synsets <synsetId, List<nouns>>
@@ -25,6 +28,28 @@ public class WordNet {
         // Process data files
         processSynsets(synsets);
         processHypernyms(hypernyms);
+        G = new Digraph(numOfVertex);
+        for (Map.Entry<Integer, ArrayList<Integer>> entry : edges.entrySet()) {
+            for (Integer w : entry.getValue()) {
+                this.G.addEdge(entry.getKey(), w);
+            }
+        }
+        // Check for cycles
+        DirectedCycle cycle = new DirectedCycle(this.G);
+        if (cycle.hasCycle()) {
+            throw new IllegalArgumentException("Not a valid DAG");
+        }
+        // Check if not rooted
+        int rooted = 0;
+        for (int i = 0; i < G.V(); i++) {
+            if (!this.G.adj(i).iterator().hasNext())
+                rooted++;
+        }
+
+        if (rooted != 1) {
+            throw new IllegalArgumentException("Not a rooted DAG");
+        }
+        this.sap = new SAP(this.G);
     }
 
     private void processHypernyms(String hypernym) {
@@ -76,36 +101,38 @@ public class WordNet {
                 this.nouns.put(noun, currentNounsList);
                 this.synsets.put(synsetId, currentSynsetNouns);
             }
-            //this.graphLength++;
+            this.numOfVertex++;
         }
     }
 
     // returns all WordNet nouns
     public Iterable<String> nouns(){
-
+        return this.nouns.keySet();
     }
 
     // is the word a WordNet noun?
     public boolean isNoun(String word){
-
+        return this.nouns.containsKey(word);
     }
 
     // distance between nounA and nounB (defined below)
     public int distance(String nounA, String nounB){
         if(!isNoun(nounA) || !isNoun(nounB))
             throw new java.lang.IllegalArgumentException();
-
+        return this.sap.length(this.nouns.get(nounA), this.nouns.get(nounB));
     }
 
     // a synset (second field of synsets.txt) that is the common ancestor of nounA and nounB
     // in a shortest ancestral path (defined below)
     public String sap(String nounA, String nounB){
         if(!isNoun(nounA) || !isNoun(nounB))
-            throw new java.lang.IllegalArgumentException();
+            throw new java.lang.IllegalArgumentException("Not a valid pair of nouns");
+        int ancestor = this.sap.ancestor(this.nouns.get(nounA),
+                                        this.nouns.get(nounB));
+
+        return this.synsets.get(ancestor);
     }
 
     // do unit testing of this class
-    public static void main(String[] args){
-
-    }
+    public static void main(String[] args){ }
 }
